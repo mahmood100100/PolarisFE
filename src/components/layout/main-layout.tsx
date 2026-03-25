@@ -14,7 +14,7 @@ export function MainLayout({ children, rightSlot }: MainLayoutProps) {
         <span className="font-semibold text-lg">Polaris</span>
         {rightSlot}
       </header>
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-hidden flex flex-col min-h-0">{children}</main>
     </div>
   );
 }

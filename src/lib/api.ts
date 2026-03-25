@@ -91,7 +91,12 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         store.dispatch(logout());
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+           // We must clear NextAuth session so it doesn't revive the expired token!
+           import("next-auth/react").then(({ signOut }) => {
+             signOut({ callbackUrl: "/login" });
+           }).catch(() => {
+             window.location.href = "/login";
+           });
         }
         return Promise.reject(refreshError);
       } finally {

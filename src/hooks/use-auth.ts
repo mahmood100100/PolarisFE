@@ -18,10 +18,13 @@ export const useAuth = () => {
   const refreshAttempted = useRef(false);
 
   useEffect(() => {
+    let currentToken = accessToken;
+
     // Sync NextAuth session to Redux
     if (status === "authenticated" && session && !accessToken) {
       const s = session as any;
       if (s.accessToken) {
+        currentToken = s.accessToken;
         dispatch(loginSuccess({
           accessToken: s.accessToken,
           user: s.user,
@@ -46,13 +49,11 @@ export const useAuth = () => {
         if (newToken) {
           console.log("Token refreshed successfully. Fetching user profile...");
           
-          // Temporarily set the token so the next API call includes it in the header
           dispatch(refreshTokenSuccess({ 
             accessToken: newToken, 
             expiresAt: expiresAt || new Date(Date.now() + 3600000).toISOString() 
           }));
 
-          // Now fetch the user profile
           const userResult = await getCurrentUserApiCall();
           if (userResult.success) {
             console.log("User profile loaded successfully.");
@@ -70,28 +71,31 @@ export const useAuth = () => {
           dispatch(refreshTokenFailure());
         }
       } catch (error: any) {
-        // If it's a 400 or 401, it just means no active session exists, which is normal for guests.
         if (error.response?.status === 400 || error.response?.status === 401) {
           console.log("No active session found (Guest).");
         } else {
           console.error("Auth initialization failed:", error.message || error);
         }
         dispatch(refreshTokenFailure());
+        
+        // If the backend fails or rejects our session, we shouldn't keep a stale NextAuth session active,
+        // otherwise the user gets stuck since they appear authenticated but lack a backend token.
+        if (status === "authenticated") {
+          import("next-auth/react").then(({ signOut }) => signOut());
+        }
       } finally {
         dispatch(setIsInitialized(true));
       }
     };
 
-
     // we attempt refresh only if there is no access token and not yet initialized
-    if (!accessToken && !isInitialized) {
+    if (!currentToken && !isInitialized) {
       handleRefreshToken();
-    } else if (accessToken) {
+    } else if (currentToken) {
       // if there is an access token, we finish initialization directly
       dispatch(setIsInitialized(true));
     }
   }, [accessToken, isInitialized, dispatch, session, status]);
-
 
   return { accessToken, isInitialized, user, provider, loading };
 };
